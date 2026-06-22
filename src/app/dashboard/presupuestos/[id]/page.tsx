@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import type { Presupuesto, PresupuestoCapitulo, PresupuestoPartida } from "@/lib/supabase/types";
 import { ArrowLeft, Send, Download, Copy, Building2, MessageCircle } from "lucide-react";
+import { generatePresupuestoPDF } from "@/lib/pdf/generatePresupuestoPDF";
 
 const estadoLabels: Record<string, { label: string; class: string }> = {
   borrador: { label: "Borrador", class: "badge-neutral" },
@@ -58,7 +59,82 @@ export default function PresupuestoDetallePage() {
   }
 
   async function duplicar() {
-    router.push(`/dashboard/presupuestos/nuevo?duplicar=${id}`);
+    if (!presupuesto) return;
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data: usr } = await supabase.from("usuarios").select("empresa_id").eq("id", user.id).single();
+    if (!usr) return;
+
+    const { data: emp } = await supabase.from("empresas").select("numeracion_presupuesto_contador").eq("id", usr.empresa_id).single();
+    const contador = (emp?.numeracion_presupuesto_contador || 0) + 1;
+    const numero = `P-${new Date().getFullYear()}-${String(contador).padStart(3, "0")}`;
+
+    const { data: newPres } = await supabase.from("presupuestos").insert({
+      empresa_id: usr.empresa_id,
+      cliente_id: presupuesto.cliente_id,
+      numero,
+      tipo_reforma: presupuesto.tipo_reforma,
+      estado: "borrador",
+      subtotal: presupuesto.subtotal,
+      iva_porcentaje: presupuesto.iva_porcentaje,
+      iva_importe: presupuesto.iva_importe,
+      total: presupuesto.total,
+      notas_cliente: presupuesto.notas_cliente,
+      notas_internas: presupuesto.notas_internas,
+    }).select("id").single();
+
+    if (newPres) {
+      for (const cap of capitulos) {
+        const { data: newCap } = await supabase.from("presupuesto_capitulos").insert({
+          presupuesto_id: newPres.id, nombre: cap.nombre, orden: cap.orden,
+        }).select("id").single();
+        if (newCap && cap.partidas) {
+          const partidas = cap.partidas.map((p: PresupuestoPartida, i: number) => ({
+            capitulo_id: newCap.id, concepto: p.concepto, descripcion: p.descripcion,
+            unidad: p.unidad, cantidad: p.cantidad, precio_unitario: p.precio_unitario,
+            margen_porcentaje: p.margen_porcentaje, total: p.total, orden: i,
+          }));
+          await supabase.from("presupuesto_partidas").insert(partidas);
+        }
+      }
+      await supabase.from("empresas").update({ numeracion_presupuesto_contador: contador }).eq("id", usr.empresa_id);
+      router.push(`/dashboard/presupuestos/${newPres.id}`);
+    }
+  }
+
+  async function descargarPDF() {
+    if (!presupuesto) return;
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data: usr } = await supabase.from("usuarios").select("empresa_id").eq("id", user.id).single();
+    if (!usr) return;
+    const { data: emp } = await supabase.from("empresas").select("nombre, cif, direccion, telefono, email, iban").eq("id", usr.empresa_id).single();
+
+    const doc = generatePresupuestoPDF({
+      numero: presupuesto.numero || "SN",
+      fecha: presupuesto.created_at,
+      empresa: emp || { nombre: "Mi Empresa" },
+      cliente: {
+        nombre: (presupuesto.clientes as { nombre: string })?.nombre || "Sin cliente",
+        direccion: undefined,
+        nif_cif: undefined,
+      },
+      capitulos: capitulos.map((c) => ({
+        nombre: c.nombre,
+        partidas: (c.partidas || []).map((p: PresupuestoPartida) => ({
+          concepto: p.concepto, unidad: p.unidad, cantidad: Number(p.cantidad),
+          precio_unitario: Number(p.precio_unitario), total: Number(p.total),
+        })),
+      })),
+      subtotal: Number(presupuesto.subtotal),
+      iva_porcentaje: Number(presupuesto.iva_porcentaje),
+      iva_importe: Number(presupuesto.iva_importe),
+      total: Number(presupuesto.total),
+      notas_cliente: presupuesto.notas_cliente || undefined,
+    });
+    doc.save(`${presupuesto.numero || "presupuesto"}.pdf`);
   }
 
   async function convertirEnObra() {
@@ -138,7 +214,7 @@ export default function PresupuestoDetallePage() {
             <Building2 className="w-4 h-4" /> Convertir en obra
           </button>
         )}
-        <button className="btn-secondary !text-sm flex items-center gap-2">
+        <button onClick={descargarPDF} className="btn-secondary !text-sm flex items-center gap-2">
           <Download className="w-4 h-4" /> Descargar PDF
         </button>
         {cliente?.telefono && (

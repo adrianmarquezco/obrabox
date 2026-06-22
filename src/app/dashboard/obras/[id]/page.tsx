@@ -28,9 +28,13 @@ export default function ObraDetallePage() {
   const { id } = useParams();
   const [obra, setObra] = useState<Obra | null>(null);
   const [fases, setFases] = useState<ObraFase[]>([]);
+  const [fotos, setFotos] = useState<any[]>([]);
+  const [documentos, setDocumentos] = useState<any[]>([]);
+  const [gastos, setGastos] = useState<any[]>([]);
   const [tab, setTab] = useState("general");
   const [loading, setLoading] = useState(true);
   const [editingEstado, setEditingEstado] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -39,12 +43,18 @@ export default function ObraDetallePage() {
 
   async function loadObra() {
     const supabase = createClient();
-    const [obraRes, fasesRes] = await Promise.all([
+    const [obraRes, fasesRes, fotosRes, docsRes, gastosRes] = await Promise.all([
       supabase.from("obras").select("*, clientes(nombre, telefono, email)").eq("id", id).single(),
       supabase.from("obra_fases").select("*").eq("obra_id", id).order("orden"),
+      supabase.from("obra_fotos").select("*").eq("obra_id", id).order("created_at", { ascending: false }),
+      supabase.from("obra_documentos").select("*").eq("obra_id", id).order("created_at", { ascending: false }),
+      supabase.from("gastos").select("*, proveedores(nombre)").eq("obra_id", id).order("fecha", { ascending: false }),
     ]);
     if (obraRes.data) setObra(obraRes.data);
     setFases(fasesRes.data || []);
+    setFotos(fotosRes.data || []);
+    setDocumentos(docsRes.data || []);
+    setGastos(gastosRes.data || []);
     setLoading(false);
   }
 
@@ -249,31 +259,125 @@ export default function ObraDetallePage() {
       )}
 
       {tab === "fotos" && (
-        <div className="card p-8 text-center">
-          <Camera className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-secondary mb-2">Sin fotos todavía</h3>
-          <p className="text-sm text-gray-500 mb-4">Sube fotos del antes, durante y después de la obra</p>
-          <button className="btn-primary inline-flex items-center gap-2">
-            <Plus className="w-4 h-4" /> Subir fotos
-          </button>
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-sm text-gray-500">{fotos.length} fotos</p>
+            <label className="btn-primary inline-flex items-center gap-2 cursor-pointer !text-sm">
+              <Plus className="w-4 h-4" /> Subir fotos
+              <input type="file" accept="image/*" multiple className="hidden" onChange={async (e) => {
+                const files = e.target.files;
+                if (!files || files.length === 0) return;
+                setUploading(true);
+                const supabase = createClient();
+                for (let i = 0; i < files.length; i++) {
+                  const file = files[i];
+                  const ext = file.name.split(".").pop();
+                  const path = `${id}/${Date.now()}-${i}.${ext}`;
+                  const { data: uploaded } = await supabase.storage.from("fotos-obra").upload(path, file);
+                  if (uploaded) {
+                    const url = supabase.storage.from("fotos-obra").getPublicUrl(uploaded.path).data.publicUrl;
+                    const { data: foto } = await supabase.from("obra_fotos").insert({ obra_id: id, url, categoria: "durante" }).select("*").single();
+                    if (foto) setFotos((prev) => [foto, ...prev]);
+                  }
+                }
+                setUploading(false);
+                e.target.value = "";
+              }} />
+            </label>
+          </div>
+          {uploading && <p className="text-sm text-primary-500 mb-4">Subiendo fotos...</p>}
+          {fotos.length === 0 ? (
+            <div className="card p-8 text-center">
+              <Camera className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-secondary mb-2">Sin fotos todavía</h3>
+              <p className="text-sm text-gray-500">Sube fotos del antes, durante y después</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+              {fotos.map((f: any) => (
+                <div key={f.id} className="relative group">
+                  <img src={f.url} alt="Foto de obra" className="w-full aspect-square object-cover rounded-xl" />
+                  <span className={`absolute top-2 left-2 text-xs font-medium px-2 py-0.5 rounded-full ${
+                    f.categoria === "antes" ? "bg-blue-100 text-blue-600" :
+                    f.categoria === "despues" ? "bg-green-100 text-green-600" :
+                    "bg-gray-100 text-gray-600"
+                  }`}>{f.categoria}</span>
+                  <p className="text-xs text-gray-400 mt-1">{new Date(f.created_at).toLocaleDateString("es-ES")}</p>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
       {tab === "gastos" && (
-        <div className="card p-8 text-center">
-          <p className="text-gray-400 text-sm">Los gastos de esta obra aparecerán aquí</p>
-          <Link href="/dashboard/gastos" className="text-primary-500 text-sm font-medium mt-2 inline-block">
-            Ir a gastos
-          </Link>
+        <div>
+          {gastos.length === 0 ? (
+            <div className="card p-8 text-center">
+              <p className="text-gray-400 text-sm">No hay gastos registrados para esta obra</p>
+              <Link href="/dashboard/gastos" className="text-primary-500 text-sm font-medium mt-2 inline-block">Registrar gasto</Link>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {gastos.map((g: any) => (
+                <div key={g.id} className="card p-4 flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-secondary text-sm">{g.concepto}</p>
+                    <p className="text-xs text-gray-500">{new Date(g.fecha).toLocaleDateString("es-ES")} · {g.categoria}</p>
+                  </div>
+                  <p className="font-semibold text-red-500">-{Number(g.importe).toLocaleString("es-ES")}€</p>
+                </div>
+              ))}
+              <div className="card p-4 bg-surface flex items-center justify-between">
+                <span className="font-semibold text-secondary text-sm">Total gastos</span>
+                <span className="font-bold text-red-500">{gastos.reduce((s: number, g: any) => s + Number(g.importe), 0).toLocaleString("es-ES")}€</span>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
       {tab === "documentos" && (
-        <div className="card p-8 text-center">
-          <p className="text-gray-400 text-sm">Los documentos de esta obra aparecerán aquí</p>
-          <button className="btn-primary inline-flex items-center gap-2 mt-4">
-            <Plus className="w-4 h-4" /> Subir documento
-          </button>
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-sm text-gray-500">{documentos.length} documentos</p>
+            <label className="btn-primary inline-flex items-center gap-2 cursor-pointer !text-sm">
+              <Plus className="w-4 h-4" /> Subir documento
+              <input type="file" className="hidden" onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                setUploading(true);
+                const supabase = createClient();
+                const path = `${id}/${Date.now()}-${file.name}`;
+                const { data: uploaded } = await supabase.storage.from("documentos").upload(path, file);
+                if (uploaded) {
+                  const url = supabase.storage.from("documentos").getPublicUrl(uploaded.path).data.publicUrl;
+                  const { data: doc } = await supabase.from("obra_documentos").insert({ obra_id: id, nombre: file.name, url }).select("*").single();
+                  if (doc) setDocumentos((prev) => [doc, ...prev]);
+                }
+                setUploading(false);
+                e.target.value = "";
+              }} />
+            </label>
+          </div>
+          {uploading && <p className="text-sm text-primary-500 mb-4">Subiendo...</p>}
+          {documentos.length === 0 ? (
+            <div className="card p-8 text-center">
+              <p className="text-gray-400 text-sm">No hay documentos adjuntos</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {documentos.map((d: any) => (
+                <a key={d.id} href={d.url} target="_blank" rel="noopener noreferrer" className="card p-4 flex items-center justify-between hover:shadow-md transition-shadow">
+                  <div>
+                    <p className="font-medium text-secondary text-sm">{d.nombre}</p>
+                    <p className="text-xs text-gray-400">{new Date(d.created_at).toLocaleDateString("es-ES")}</p>
+                  </div>
+                  <span className="text-xs text-primary-500 font-medium">Descargar</span>
+                </a>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
