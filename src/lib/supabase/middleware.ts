@@ -46,12 +46,28 @@ export async function updateSession(request: NextRequest) {
   const isProtected = protectedPaths.some((path) =>
     request.nextUrl.pathname.startsWith(path)
   );
+  const isAdminPath = request.nextUrl.pathname.startsWith("/admin");
 
-  if (isProtected && !user) {
+  if ((isProtected || isAdminPath) && !user) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("redirect", request.nextUrl.pathname);
     return NextResponse.redirect(url);
+  }
+
+  if (isAdminPath && user) {
+    const { data: adminUser } = await supabase
+      .from("admin_users")
+      .select("id, activo")
+      .eq("id", user.id)
+      .eq("activo", true)
+      .single();
+
+    if (!adminUser) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/dashboard";
+      return NextResponse.redirect(url);
+    }
   }
 
   if (user && (request.nextUrl.pathname === "/login" || request.nextUrl.pathname === "/registro")) {

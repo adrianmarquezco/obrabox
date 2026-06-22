@@ -6,7 +6,7 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: "*",
         allow: "/",
-        disallow: ["/dashboard/", "/cliente/", "/auth/", "/api/"],
+        disallow: ["/dashboard/", "/cliente/", "/auth/", "/api/", "/admin/"],
       },
     ],
     sitemap: "https://obrabox.es/sitemap.xml",
