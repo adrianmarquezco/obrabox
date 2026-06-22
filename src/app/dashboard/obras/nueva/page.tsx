@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import type { Cliente } from "@/lib/supabase/types";
+type ClienteOption = { id: string; nombre: string };
 
 const FASES_DEFECTO = [
   "Demolición",
@@ -21,7 +21,7 @@ const FASES_DEFECTO = [
 
 export default function NuevaObraPage() {
   const [step, setStep] = useState(0);
-  const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [clientes, setClientes] = useState<ClienteOption[]>([]);
   const [form, setForm] = useState({
     nombre: "",
     tipo_reforma: "",
