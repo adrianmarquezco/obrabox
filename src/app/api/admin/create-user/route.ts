@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
@@ -7,13 +8,8 @@ export async function POST(request: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
 
-  const { data: admin } = await supabase
-    .from("admin_users")
-    .select("id")
-    .eq("id", user.id)
-    .eq("activo", true)
-    .single();
-  if (!admin) return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+  const { data: isAdmin } = await supabase.rpc("check_is_admin");
+  if (!isAdmin) return NextResponse.json({ error: "No autorizado" }, { status: 403 });
 
   const body = await request.json();
   const { nombre, email, password, empresa_id, rol, telefono } = body;
@@ -22,11 +18,21 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Campos obligatorios: nombre, email, password, empresa_id" }, { status: 400 });
   }
 
-  const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!serviceKey) {
+    return NextResponse.json({ error: "SERVICE_ROLE_KEY no configurada en el servidor" }, { status: 500 });
+  }
+
+  const serviceClient = createServiceClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    serviceKey
+  );
+
+  const { data: authUser, error: authError } = await serviceClient.auth.admin.createUser({
     email,
     password,
     email_confirm: true,
-    user_metadata: { nombre, empresa: "" },
+    user_metadata: { nombre },
   });
 
   if (authError) {
@@ -40,7 +46,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Error creando usuario en auth" }, { status: 500 });
   }
 
-  const { error: usrError } = await supabase.from("usuarios").insert({
+  const { error: usrError } = await serviceClient.from("usuarios").insert({
     id: authUser.user.id,
     empresa_id,
     nombre,
@@ -50,7 +56,7 @@ export async function POST(request: Request) {
   });
 
   if (usrError) {
-    return NextResponse.json({ error: "Error vinculando usuario a empresa" }, { status: 500 });
+    return NextResponse.json({ error: "Error vinculando usuario: " + usrError.message }, { status: 500 });
   }
 
   await supabase.from("admin_logs").insert({

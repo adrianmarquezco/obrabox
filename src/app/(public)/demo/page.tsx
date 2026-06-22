@@ -17,8 +17,13 @@ export default function DemoPage() {
     setForm((prev) => ({ ...prev, [field]: value }));
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    await fetch("/api/contacto", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tipo: "demo", nombre: form.nombre, email: form.email, telefono: form.telefono, empresa: form.empresa, empleados: form.empleados }),
+    });
     setSent(true);
   }
 

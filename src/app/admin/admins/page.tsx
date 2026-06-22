@@ -70,6 +70,8 @@ export default function AdminAdminsPage() {
   async function toggleActivo(adminId: string, activo: boolean) {
     const supabase = createClient();
     await supabase.from("admin_users").update({ activo: !activo }).eq("id", adminId);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) await supabase.from("admin_logs").insert({ admin_id: user.id, accion: activo ? "admin_disable" : "admin_enable", entidad: "admin_users", entidad_id: adminId });
     setAdmins((prev) => prev.map((a) => a.id === adminId ? { ...a, activo: !activo } : a));
   }
 

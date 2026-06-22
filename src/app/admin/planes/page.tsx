@@ -32,6 +32,8 @@ export default function AdminPlanesPage() {
   async function cambiarPlan(empresaId: string, plan: string) {
     const supabase = createClient();
     await supabase.from("empresas").update({ plan }).eq("id", empresaId);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) await supabase.from("admin_logs").insert({ admin_id: user.id, accion: "plan_change", entidad: "empresas", entidad_id: empresaId, detalles: { plan } });
     setEmpresas((prev) => prev.map((e) => e.id === empresaId ? { ...e, plan } : e));
   }
 

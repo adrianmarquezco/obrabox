@@ -22,12 +22,12 @@ export default function MobileNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-border z-50 safe-area-inset-bottom">
+    <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-border z-50">
       <div className="flex items-center justify-around h-16">
         {tabs.map((tab) => {
           const isActive =
             pathname === tab.href ||
-            (tab.href !== "/dashboard" && pathname.startsWith(tab.href));
+            (tab.href !== "/dashboard" && tab.href !== "/dashboard/mas" && pathname.startsWith(tab.href));
           return (
             <Link
               key={tab.href}

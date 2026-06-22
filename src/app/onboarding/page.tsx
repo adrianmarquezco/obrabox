@@ -62,13 +62,15 @@ export default function OnboardingPage() {
         modulos = [...modulos, ...modulosMedio, ...modulosFull];
       }
 
-      const inserts = modulos.map((m) => ({
-        empresa_id: usr.empresa_id,
-        modulo: m,
-        activo: true,
-      }));
-
-      await supabase.from("modulos_activos").insert(inserts);
+      const { data: existing } = await supabase.from("modulos_activos").select("id").eq("empresa_id", usr.empresa_id).limit(1);
+      if (!existing || existing.length === 0) {
+        const inserts = modulos.map((m) => ({
+          empresa_id: usr.empresa_id,
+          modulo: m,
+          activo: true,
+        }));
+        await supabase.from("modulos_activos").insert(inserts);
+      }
     }
 
     router.push("/dashboard");

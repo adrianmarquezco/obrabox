@@ -143,11 +143,11 @@ function NuevoPresupuestoForm() {
 
     const { data: emp } = await supabase
       .from("empresas")
-      .select("numeracion_factura_prefijo, numeracion_factura_contador")
+      .select("numeracion_presupuesto_contador")
       .eq("id", usr.empresa_id)
       .single();
 
-    const contador = (emp?.numeracion_factura_contador || 0) + 1;
+    const contador = (emp?.numeracion_presupuesto_contador || 0) + 1;
     const numero = `P-${new Date().getFullYear()}-${String(contador).padStart(3, "0")}`;
 
     const { data: pres, error: presErr } = await supabase
@@ -201,6 +201,8 @@ function NuevoPresupuestoForm() {
         }
       }
     }
+
+    await supabase.from("empresas").update({ numeracion_presupuesto_contador: contador }).eq("id", usr.empresa_id);
 
     router.push(`/dashboard/presupuestos/${pres.id}`);
   }
