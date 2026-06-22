@@ -39,7 +39,7 @@ export default function PresupuestosPage() {
     const matchSearch =
       !search ||
       (p.numero && p.numero.toLowerCase().includes(search.toLowerCase())) ||
-      (p.clientes && (p.clientes as any).nombre.toLowerCase().includes(search.toLowerCase()));
+      (p.clientes && (p.clientes as { nombre: string }).nombre.toLowerCase().includes(search.toLowerCase()));
     const matchEstado = !filtroEstado || p.estado === filtroEstado;
     return matchSearch && matchEstado;
   });
@@ -100,7 +100,7 @@ export default function PresupuestosPage() {
                     <span className={est.class}>{est.label}</span>
                   </div>
                   <div className="flex items-center gap-4 text-sm text-gray-500">
-                    {p.clientes && <span>{(p.clientes as any).nombre}</span>}
+                    {p.clientes && <span>{(p.clientes as { nombre: string }).nombre}</span>}
                     {p.tipo_reforma && <span>{p.tipo_reforma}</span>}
                     {diasDesdeEnvio !== null && (
                       <span>Enviado hace {diasDesdeEnvio} días</span>

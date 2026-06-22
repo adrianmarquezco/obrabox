@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import type { Presupuesto, PresupuestoCapitulo, PresupuestoPartida } from "@/lib/supabase/types";
-import { ArrowLeft, Send, Download, Copy, Building2, CheckCircle2, X, MessageCircle } from "lucide-react";
+import { ArrowLeft, Send, Download, Copy, Building2, MessageCircle } from "lucide-react";
 
 const estadoLabels: Record<string, { label: string; class: string }> = {
   borrador: { label: "Borrador", class: "badge-neutral" },
@@ -25,6 +25,7 @@ export default function PresupuestoDetallePage() {
 
   useEffect(() => {
     loadPresupuesto();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   async function loadPresupuesto() {
@@ -36,9 +37,9 @@ export default function PresupuestoDetallePage() {
     if (presRes.data) setPresupuesto(presRes.data);
     if (capsRes.data) {
       setCapitulos(
-        capsRes.data.map((c: any) => ({
+        capsRes.data.map((c: { partidas?: { orden: number }[] }) => ({
           ...c,
-          partidas: (c.partidas || []).sort((a: any, b: any) => a.orden - b.orden),
+          partidas: (c.partidas || []).sort((a: { orden: number }, b: { orden: number }) => a.orden - b.orden),
         }))
       );
     }
@@ -47,7 +48,7 @@ export default function PresupuestoDetallePage() {
 
   async function updateEstado(estado: string) {
     const supabase = createClient();
-    const updates: any = { estado };
+    const updates: Record<string, string> = { estado };
     if (estado === "enviado" && !presupuesto?.fecha_envio) {
       updates.fecha_envio = new Date().toISOString().split("T")[0];
     }
@@ -92,7 +93,7 @@ export default function PresupuestoDetallePage() {
   if (!presupuesto) return <div className="card p-8 text-center"><p className="text-gray-500">Presupuesto no encontrado</p></div>;
 
   const est = estadoLabels[presupuesto.estado] || { label: presupuesto.estado, class: "badge-neutral" };
-  const cliente = presupuesto.clientes as any;
+  const cliente = presupuesto.clientes as { nombre: string; telefono?: string; email?: string } | undefined;
 
   return (
     <div className="max-w-4xl mx-auto">

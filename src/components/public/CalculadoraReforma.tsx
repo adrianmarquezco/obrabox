@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Calculator, ArrowRight } from "lucide-react";
+import { Calculator } from "lucide-react";
 
 interface CalculadoraProps {
   titulo: string;
