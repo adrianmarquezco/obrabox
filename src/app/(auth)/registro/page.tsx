@@ -53,7 +53,8 @@ export default function RegisterPage() {
       return;
     }
 
-    router.push("/dashboard");
+    await fetch("/api/setup-user", { method: "POST" });
+    router.push("/onboarding");
   }
 
   async function handleGoogle() {
