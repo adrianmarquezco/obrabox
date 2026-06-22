@@ -17,12 +17,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.push("/login"); return; }
 
-      const { data } = await supabase
-        .from("admin_users")
-        .select("id")
-        .eq("id", user.id)
-        .eq("activo", true)
-        .single();
+      const { data } = await supabase.rpc("check_is_admin");
 
       if (!data) { router.push("/dashboard"); return; }
       setAuthorized(true);
