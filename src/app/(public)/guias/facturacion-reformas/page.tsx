@@ -49,7 +49,7 @@ export default function Page() {
       <p>El tema del IVA es complejo y está detallado en nuestra <Link href="/blog/iva-reformas-10-21">guía completa de IVA en reformas</Link>. En resumen:</p>
       <ul>
         <li><strong>10%</strong>: reformas en viviendas particulares de más de 2 años, contratadas por un particular, con materiales ≤ 40% del total.</li>
-        <li><strong>21%</strong>: locales, viviendas nuevas, cuando contrata una empresa, materiales > 40%, ampliaciones.</li>
+        <li><strong>21%</strong>: locales, viviendas nuevas, cuando contrata una empresa, materiales &gt; 40%, ampliaciones.</li>
       </ul>
 
       <h2>Retenciones (IRPF)</h2>
