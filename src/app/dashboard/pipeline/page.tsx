@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Plus, Phone, Mail, GripVertical, TrendingUp } from "lucide-react";
+import { Plus, Phone, Mail } from "lucide-react";
 
 type Lead = {
   id: string;

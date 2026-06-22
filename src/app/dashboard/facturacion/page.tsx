@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import Link from "next/link";
-import { Plus, Receipt, Search } from "lucide-react";
+import { Plus, Receipt } from "lucide-react";
 
 type Factura = {
   id: string;

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
-import { Clock, MapPin, AlertTriangle } from "lucide-react";
+import { Clock, AlertTriangle } from "lucide-react";
 
 type Fichaje = {
   id: string;

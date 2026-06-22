@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import type { Obra, ObraFase } from "@/lib/supabase/types";
 import {
-  ArrowLeft, Pencil, Trash2, CheckCircle2, Circle, PlayCircle,
+  ArrowLeft, Trash2, CheckCircle2, Circle, PlayCircle,
   Camera, Plus, MapPin, Calendar, User,
 } from "lucide-react";
 
