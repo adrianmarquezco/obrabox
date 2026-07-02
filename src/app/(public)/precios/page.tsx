@@ -5,37 +5,37 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Precios de ObraBox — Planes para Autónomos y Empresas de Reformas",
   description:
-    "Compara los planes de ObraBox: Gratis, Pro (29€/mes) y Business (59€/mes). Empieza gratis y crece cuando lo necesites.",
+    "Compara los planes de ObraBox: Básico (29€/mes), Pro (89€/mes) y Business (189€/mes). Prueba gratis 14 días sin tarjeta.",
   alternates: { canonical: "/precios" },
 };
 
-type Feature = { name: string; gratis: boolean | string; pro: boolean | string; business: boolean | string };
+type Feature = { name: string; basico: boolean | string; pro: boolean | string; business: boolean | string };
 
 const features: Feature[] = [
-  { name: "Usuarios", gratis: "1", pro: "Ilimitados", business: "Ilimitados" },
-  { name: "Obras activas", gratis: "3", pro: "Ilimitadas", business: "Ilimitadas" },
-  { name: "Presupuestos con plantillas", gratis: true, pro: true, business: true },
-  { name: "Opciones básico/medio/premium", gratis: false, pro: true, business: true },
-  { name: "Firma digital", gratis: false, pro: true, business: true },
-  { name: "Galería de fotos de obra", gratis: true, pro: true, business: true },
-  { name: "Agenda y citas", gratis: true, pro: true, business: true },
-  { name: "Control de gastos", gratis: false, pro: true, business: true },
-  { name: "Facturación", gratis: false, pro: true, business: true },
-  { name: "Portal del cliente", gratis: false, pro: true, business: true },
-  { name: "CRM / Pipeline", gratis: false, pro: true, business: true },
-  { name: "Gestión de equipo", gratis: false, pro: true, business: true },
-  { name: "Fichaje con GPS", gratis: false, pro: true, business: true },
-  { name: "Informes de rentabilidad", gratis: false, pro: true, business: true },
-  { name: "Envío por WhatsApp/email", gratis: true, pro: true, business: true },
-  { name: "Plantillas de presupuesto", gratis: "3", pro: "Ilimitadas", business: "Ilimitadas" },
-  { name: "Recordatorios de impago", gratis: false, pro: true, business: true },
-  { name: "Exportar para gestoría", gratis: false, pro: true, business: true },
-  { name: "Portfolio público", gratis: false, pro: false, business: true },
-  { name: "Directorio destacado", gratis: false, pro: false, business: true },
-  { name: "API", gratis: false, pro: false, business: true },
-  { name: "Multi-empresa", gratis: false, pro: false, business: true },
-  { name: "Personalización portal cliente", gratis: false, pro: false, business: true },
-  { name: "Soporte", gratis: "Comunidad", pro: "Email", business: "Prioritario" },
+  { name: "Usuarios", basico: "1", pro: "Ilimitados", business: "Ilimitados" },
+  { name: "Obras activas", basico: "3", pro: "Ilimitadas", business: "Ilimitadas" },
+  { name: "Presupuestos con plantillas", basico: true, pro: true, business: true },
+  { name: "Opciones básico/medio/premium", basico: false, pro: true, business: true },
+  { name: "Firma digital", basico: false, pro: true, business: true },
+  { name: "Galería de fotos de obra", basico: true, pro: true, business: true },
+  { name: "Agenda y citas", basico: true, pro: true, business: true },
+  { name: "Control de gastos", basico: false, pro: true, business: true },
+  { name: "Facturación", basico: false, pro: true, business: true },
+  { name: "Portal del cliente", basico: false, pro: true, business: true },
+  { name: "CRM / Pipeline", basico: false, pro: true, business: true },
+  { name: "Gestión de equipo", basico: false, pro: true, business: true },
+  { name: "Fichaje con GPS", basico: false, pro: true, business: true },
+  { name: "Informes de rentabilidad", basico: false, pro: true, business: true },
+  { name: "Envío por WhatsApp/email", basico: true, pro: true, business: true },
+  { name: "Plantillas de presupuesto", basico: "3", pro: "Ilimitadas", business: "Ilimitadas" },
+  { name: "Recordatorios de impago", basico: false, pro: true, business: true },
+  { name: "Exportar para gestoría", basico: false, pro: true, business: true },
+  { name: "Portfolio público", basico: false, pro: false, business: true },
+  { name: "Directorio destacado", basico: false, pro: false, business: true },
+  { name: "API", basico: false, pro: false, business: true },
+  { name: "Multi-empresa", basico: false, pro: false, business: true },
+  { name: "Personalización portal cliente", basico: false, pro: false, business: true },
+  { name: "Soporte", basico: "Comunidad", pro: "Email", business: "Prioritario" },
 ];
 
 function Cell({ value }: { value: boolean | string }) {
@@ -51,8 +51,8 @@ function Cell({ value }: { value: boolean | string }) {
 
 const faqs = [
   { q: "¿Puedo cambiar de plan en cualquier momento?", a: "Sí, puedes subir o bajar de plan cuando quieras. Si subes, se te cobra la diferencia prorrateada. Si bajas, el cambio se aplica en el siguiente periodo de facturación." },
-  { q: "¿Qué pasa con mis datos si bajo de plan?", a: "Tus datos nunca se borran. Si bajas al plan Gratis, puedes seguir consultando todo pero no podrás crear nuevas obras más allá del límite de 3 activas." },
-  { q: "¿Hay descuento por pago anual?", a: "Sí. El plan Pro anual son 290€/año (ahorro de 58€) y el Business anual son 590€/año (ahorro de 118€)." },
+  { q: "¿Qué pasa con mis datos si bajo de plan?", a: "Tus datos nunca se borran. Si bajas al plan Básico, puedes seguir consultando todo pero no podrás crear nuevas obras más allá del límite de 3 activas." },
+  { q: "¿Hay descuento por pago anual?", a: "Sí. El plan Básico anual son 290€/año (ahorro de 58€), el Pro anual son 890€/año (ahorro de 178€) y el Business anual son 1.890€/año (ahorro de 378€)." },
   { q: "¿Ofrecéis periodo de prueba?", a: "Sí. Al registrarte tienes 14 días de prueba gratuita del plan Pro sin necesidad de tarjeta de crédito." },
   { q: "¿Puedo pagar con tarjeta?", a: "Sí, aceptamos todas las tarjetas de crédito y débito principales. También transferencia bancaria para el plan anual." },
 ];
@@ -74,14 +74,17 @@ export default function PreciosPage() {
           {/* Cards de precios */}
           <div className="grid sm:grid-cols-3 gap-8 max-w-5xl mx-auto mb-20">
             <div className="card p-8 flex flex-col">
-              <h2 className="text-xl font-bold text-secondary">Gratis</h2>
-              <p className="text-4xl font-bold text-secondary mt-4">0€</p>
-              <p className="text-sm text-gray-500 mb-6">para siempre</p>
+              <h2 className="text-xl font-bold text-secondary">Básico</h2>
+              <p className="text-4xl font-bold text-secondary mt-4">29€</p>
+              <p className="text-sm text-gray-500 mb-1">/mes</p>
+              <p className="text-xs text-gray-500 font-medium mb-6">
+                o 290€/año (ahorro de 2 meses)
+              </p>
               <p className="text-sm text-gray-600 mb-6">
-                Para autónomos que empiezan y quieren probar la app sin compromiso.
+                Para autónomos y pequeñas empresas que quieren empezar a gestionar sus obras con orden.
               </p>
               <Link href="/registro" className="btn-secondary text-center mt-auto">
-                Empezar gratis
+                Prueba gratis 14 días
               </Link>
             </div>
 
@@ -90,13 +93,13 @@ export default function PreciosPage() {
                 Más popular
               </span>
               <h2 className="text-xl font-bold text-secondary">Pro</h2>
-              <p className="text-4xl font-bold text-primary-500 mt-4">29€</p>
+              <p className="text-4xl font-bold text-primary-500 mt-4">89€</p>
               <p className="text-sm text-gray-500 mb-1">/mes</p>
               <p className="text-xs text-primary-600 font-medium mb-6">
-                o 290€/año (ahorro de 2 meses)
+                o 890€/año (ahorro de 2 meses)
               </p>
               <p className="text-sm text-gray-600 mb-6">
-                Para empresas de reformas que quieren profesionalizarse y crecer.
+                Para empresas de reformas que quieren profesionalizarse y crecer con todas las herramientas.
               </p>
               <Link href="/registro" className="btn-primary text-center mt-auto">
                 Prueba gratis 14 días
@@ -105,10 +108,10 @@ export default function PreciosPage() {
 
             <div className="card p-8 flex flex-col">
               <h2 className="text-xl font-bold text-secondary">Business</h2>
-              <p className="text-4xl font-bold text-secondary mt-4">59€</p>
+              <p className="text-4xl font-bold text-secondary mt-4">189€</p>
               <p className="text-sm text-gray-500 mb-1">/mes</p>
               <p className="text-xs text-gray-500 font-medium mb-6">
-                o 590€/año (ahorro de 2 meses)
+                o 1.890€/año (ahorro de 2 meses)
               </p>
               <p className="text-sm text-gray-600 mb-6">
                 Para empresas con equipo grande, múltiples marcas o que quieren visibilidad pública.
@@ -128,7 +131,7 @@ export default function PreciosPage() {
               <thead>
                 <tr className="border-b-2 border-border">
                   <th className="text-left py-3 px-4 text-sm font-semibold text-gray-500">Funcionalidad</th>
-                  <th className="text-center py-3 px-4 text-sm font-semibold text-gray-500 w-28">Gratis</th>
+                  <th className="text-center py-3 px-4 text-sm font-semibold text-gray-500 w-28">Básico</th>
                   <th className="text-center py-3 px-4 text-sm font-semibold text-primary-500 w-28">Pro</th>
                   <th className="text-center py-3 px-4 text-sm font-semibold text-gray-500 w-28">Business</th>
                 </tr>
@@ -137,7 +140,7 @@ export default function PreciosPage() {
                 {features.map((f) => (
                   <tr key={f.name} className="border-b border-border">
                     <td className="py-3 px-4 text-sm text-secondary">{f.name}</td>
-                    <td className="py-3 px-4 text-center"><Cell value={f.gratis} /></td>
+                    <td className="py-3 px-4 text-center"><Cell value={f.basico} /></td>
                     <td className="py-3 px-4 text-center bg-primary-50/50"><Cell value={f.pro} /></td>
                     <td className="py-3 px-4 text-center"><Cell value={f.business} /></td>
                   </tr>
@@ -192,9 +195,9 @@ export default function PreciosPage() {
             name: "ObraBox",
             description: "Software de gestión para empresas de reformas y construcción",
             offers: [
-              { "@type": "Offer", name: "Gratis", price: "0", priceCurrency: "EUR" },
-              { "@type": "Offer", name: "Pro", price: "29", priceCurrency: "EUR", billingIncrement: "P1M" },
-              { "@type": "Offer", name: "Business", price: "59", priceCurrency: "EUR", billingIncrement: "P1M" },
+              { "@type": "Offer", name: "Básico", price: "29", priceCurrency: "EUR", billingIncrement: "P1M" },
+              { "@type": "Offer", name: "Pro", price: "89", priceCurrency: "EUR", billingIncrement: "P1M" },
+              { "@type": "Offer", name: "Business", price: "189", priceCurrency: "EUR", billingIncrement: "P1M" },
             ],
           }),
         }}

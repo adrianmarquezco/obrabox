@@ -90,7 +90,7 @@ const comparativa = [
 const faqs = [
   {
     q: "¿ObraBox es gratis?",
-    a: "Sí, el plan Gratis incluye 1 usuario, 3 obras activas, presupuestos básicos, fotos y agenda. Para funcionalidades avanzadas como portal del cliente, CRM o informes, necesitas el plan Pro (29€/mes).",
+    a: "Todos los planes incluyen 14 días de prueba gratuita sin tarjeta. El plan Básico (29€/mes) incluye 1 usuario, 3 obras activas, presupuestos básicos, fotos y agenda. Para funcionalidades avanzadas como portal del cliente, CRM o informes, necesitas el plan Pro (89€/mes).",
   },
   {
     q: "¿Necesito instalar algo en el ordenador?",
@@ -110,7 +110,7 @@ const faqs = [
   },
   {
     q: "¿Funciona para autónomos o solo para empresas?",
-    a: "ObraBox funciona tanto para autónomos como para empresas. El plan Gratis es perfecto para empezar si trabajas solo.",
+    a: "ObraBox funciona tanto para autónomos como para empresas. El plan Básico (29€/mes) es perfecto para empezar si trabajas solo o con poco equipo.",
   },
   {
     q: "¿Puedo migrar mis datos desde Excel?",
@@ -353,13 +353,13 @@ export default function HomePage() {
             Planes para cada necesidad
           </h2>
           <p className="text-lg text-gray-600 mb-8">
-            Empieza gratis. Crece cuando lo necesites.
+            14 días de prueba gratis. Sin tarjeta. Sin compromisos.
           </p>
           <div className="grid sm:grid-cols-3 gap-8 max-w-4xl mx-auto">
             <div className="card p-6 text-center">
-              <h3 className="font-semibold text-secondary text-lg">Gratis</h3>
-              <p className="text-3xl font-bold text-secondary mt-2">0€</p>
-              <p className="text-sm text-gray-500 mb-4">para siempre</p>
+              <h3 className="font-semibold text-secondary text-lg">Básico</h3>
+              <p className="text-3xl font-bold text-secondary mt-2">29€</p>
+              <p className="text-sm text-gray-500 mb-4">/mes</p>
               <ul className="text-sm text-gray-600 space-y-2 text-left">
                 <li className="flex items-start gap-2">
                   <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
@@ -380,7 +380,7 @@ export default function HomePage() {
                 Popular
               </span>
               <h3 className="font-semibold text-secondary text-lg">Pro</h3>
-              <p className="text-3xl font-bold text-primary-500 mt-2">29€</p>
+              <p className="text-3xl font-bold text-primary-500 mt-2">89€</p>
               <p className="text-sm text-gray-500 mb-4">/mes</p>
               <ul className="text-sm text-gray-600 space-y-2 text-left">
                 <li className="flex items-start gap-2">
@@ -399,7 +399,7 @@ export default function HomePage() {
             </div>
             <div className="card p-6 text-center">
               <h3 className="font-semibold text-secondary text-lg">Business</h3>
-              <p className="text-3xl font-bold text-secondary mt-2">59€</p>
+              <p className="text-3xl font-bold text-secondary mt-2">189€</p>
               <p className="text-sm text-gray-500 mb-4">/mes</p>
               <ul className="text-sm text-gray-600 space-y-2 text-left">
                 <li className="flex items-start gap-2">

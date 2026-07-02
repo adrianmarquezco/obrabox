@@ -238,7 +238,7 @@ export default function ConfiguracionPage() {
             <h3 className="font-semibold text-secondary mb-2">Plan actual</h3>
             <div className="flex items-center gap-3">
               <span className={`text-lg font-bold capitalize ${empresa.plan === "pro" ? "text-primary-500" : empresa.plan === "business" ? "text-blue-500" : "text-gray-500"}`}>{empresa.plan}</span>
-              {empresa.plan === "gratis" && (
+              {empresa.plan !== "business" && (
                 <a href="/precios" className="text-sm text-primary-500 font-medium">Mejorar plan</a>
               )}
             </div>
