@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
-import { Plus, UserCog, Phone, Star } from "lucide-react";
+import { Plus, UserCog, Phone, Star, Search, X } from "lucide-react";
 
 type Trabajador = {
   id: string;
@@ -27,6 +27,8 @@ const tipoLabels: Record<string, string> = {
 export default function EquipoPage() {
   const [equipo, setEquipo] = useState<Trabajador[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [filtroTipo, setFiltroTipo] = useState("");
   const [showNew, setShowNew] = useState(false);
   const [form, setForm] = useState({
     nombre: "", telefono: "", email: "", tipo: "empleado",
@@ -82,10 +84,31 @@ export default function EquipoPage() {
         </button>
       </div>
 
-      <div className="flex gap-3 mb-6">
+      <div className="flex gap-3 mb-4">
         <Link href="/dashboard/equipo" className="badge-info">Equipo</Link>
         <Link href="/dashboard/equipo/planning" className="badge-neutral">Planning semanal</Link>
         <Link href="/dashboard/equipo/fichaje" className="badge-neutral">Fichaje</Link>
+      </div>
+
+      <div className="flex flex-col sm:flex-row gap-3 mb-6">
+        <div className="relative flex-1">
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input type="text" placeholder="Buscar por nombre o especialidad..."
+            value={search} onChange={(e) => setSearch(e.target.value)}
+            className="input !pl-10 !py-2.5 !text-sm" />
+          {search && (
+            <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2">
+              <X className="w-3.5 h-3.5 text-gray-400 hover:text-gray-600" />
+            </button>
+          )}
+        </div>
+        <select value={filtroTipo} onChange={(e) => setFiltroTipo(e.target.value)}
+          className="input !py-2.5 !text-sm sm:w-48">
+          <option value="">Todos los tipos</option>
+          <option value="empleado">Empleado</option>
+          <option value="subcontrata">Subcontrata</option>
+          <option value="autonomo">Autónomo</option>
+        </select>
       </div>
 
       {showNew && (
@@ -148,7 +171,12 @@ export default function EquipoPage() {
         </div>
       ) : (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {equipo.map((t) => (
+          {equipo.filter((t) => {
+            const matchSearch = !search || t.nombre.toLowerCase().includes(search.toLowerCase()) ||
+              (t.especialidades && t.especialidades.some((e) => e.toLowerCase().includes(search.toLowerCase())));
+            const matchTipo = !filtroTipo || t.tipo === filtroTipo;
+            return matchSearch && matchTipo;
+          }).map((t) => (
             <div key={t.id} className="card p-5">
               <div className="flex items-start justify-between mb-2">
                 <div>
