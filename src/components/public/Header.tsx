@@ -21,7 +21,6 @@ const recursos = [
   { href: "/blog", label: "Blog" },
   { href: "/calculadora/reforma-bano", label: "Calculadoras" },
   { href: "/plantillas/presupuesto-reforma-bano", label: "Plantillas gratis" },
-  { href: "/directorio", label: "Directorio profesionales" },
   { href: "/subvenciones", label: "Subvenciones" },
   { href: "/guias/montar-empresa-reformas", label: "Guías" },
 ];

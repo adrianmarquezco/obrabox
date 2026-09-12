@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { Plus, MessageSquare, Phone, Mail, MapPin, MessagesSquare } from "lucide-react";
+import { Plus, MessageSquare, Phone, Mail, MapPin, MessagesSquare, Filter, X } from "lucide-react";
 
 type Comunicacion = {
   id: string;
@@ -20,28 +21,77 @@ const tipoIcons: Record<string, { icon: typeof Phone; label: string; color: stri
   visita: { icon: MapPin, label: "Visita", color: "text-orange-500 bg-orange-50" },
 };
 
-export default function ComunicacionesPage() {
+const PAGE_SIZE = 25;
+
+function ComunicacionesInner() {
+  const searchParams = useSearchParams();
+  const clienteParam = searchParams.get("cliente") || "";
+  const obraParam = searchParams.get("obra") || "";
+
   const [comunicaciones, setComunicaciones] = useState<Comunicacion[]>([]);
   const [loading, setLoading] = useState(true);
   const [showNew, setShowNew] = useState(false);
   const [clientes, setClientes] = useState<{ id: string; nombre: string }[]>([]);
   const [obras, setObras] = useState<{ id: string; nombre: string }[]>([]);
-  const [form, setForm] = useState({ tipo: "llamada", cliente_id: "", obra_id: "", nota: "" });
+  const [form, setForm] = useState({ tipo: "llamada", cliente_id: clienteParam, obra_id: obraParam, nota: "" });
   const [saving, setSaving] = useState(false);
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
 
-  useEffect(() => { loadData(); }, []);
+  // Filters
+  const [filterCliente, setFilterCliente] = useState(clienteParam);
+  const [filterObra, setFilterObra] = useState(obraParam);
+  const [filterTipo, setFilterTipo] = useState("");
 
-  async function loadData() {
+  const activeFilters = [filterCliente, filterObra, filterTipo].filter(Boolean).length;
+
+  const loadComunicaciones = useCallback(async (p: number, replace = false) => {
     const supabase = createClient();
-    const [comRes, cliRes, obraRes] = await Promise.all([
-      supabase.from("comunicaciones").select("*, clientes(nombre), obras(nombre)").order("fecha", { ascending: false }).limit(100),
-      supabase.from("clientes").select("id, nombre").is("deleted_at", null).order("nombre"),
-      supabase.from("obras").select("id, nombre").is("deleted_at", null).order("nombre"),
-    ]);
-    setComunicaciones(comRes.data || []);
-    setClientes(cliRes.data || []);
-    setObras(obraRes.data || []);
+    let q = supabase.from("comunicaciones")
+      .select("*, clientes(nombre), obras(nombre)")
+      .order("fecha", { ascending: false })
+      .range(p * PAGE_SIZE, (p + 1) * PAGE_SIZE - 1);
+
+    if (filterCliente) q = q.eq("cliente_id", filterCliente);
+    if (filterObra) q = q.eq("obra_id", filterObra);
+    if (filterTipo) q = q.eq("tipo", filterTipo);
+
+    const { data } = await q;
+    const rows = data || [];
+    setHasMore(rows.length === PAGE_SIZE);
+    setComunicaciones((prev) => replace ? rows : [...prev, ...rows]);
     setLoading(false);
+  }, [filterCliente, filterObra, filterTipo]);
+
+  useEffect(() => {
+    const loadBase = async () => {
+      const supabase = createClient();
+      const [cliRes, obraRes] = await Promise.all([
+        supabase.from("clientes").select("id, nombre").is("deleted_at", null).order("nombre"),
+        supabase.from("obras").select("id, nombre").is("deleted_at", null).order("nombre"),
+      ]);
+      setClientes(cliRes.data || []);
+      setObras(obraRes.data || []);
+    };
+    loadBase();
+  }, []);
+
+  useEffect(() => {
+    setPage(0);
+    setLoading(true);
+    loadComunicaciones(0, true);
+  }, [filterCliente, filterObra, filterTipo]);
+
+  function loadMore() {
+    const next = page + 1;
+    setPage(next);
+    loadComunicaciones(next);
+  }
+
+  function clearFilters() {
+    setFilterCliente("");
+    setFilterObra("");
+    setFilterTipo("");
   }
 
   async function handleCreate(e: React.FormEvent) {
@@ -68,15 +118,52 @@ export default function ComunicacionesPage() {
     setSaving(false);
   }
 
+  const clienteNombre = filterCliente ? clientes.find((c) => c.id === filterCliente)?.nombre : null;
+  const obraNombre = filterObra ? obras.find((o) => o.id === filterObra)?.nombre : null;
+
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-bold text-secondary">Comunicaciones</h1>
         <button onClick={() => setShowNew(true)} className="btn-primary flex items-center gap-2 !text-sm">
           <Plus className="w-4 h-4" /> Registrar contacto
         </button>
       </div>
 
+      {/* Filtros */}
+      <div className="flex flex-wrap gap-2 mb-4 items-center">
+        <select value={filterCliente} onChange={(e) => setFilterCliente(e.target.value)}
+          className="input !w-auto !py-1.5 !text-sm">
+          <option value="">Todos los clientes</option>
+          {clientes.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+        </select>
+        <select value={filterObra} onChange={(e) => setFilterObra(e.target.value)}
+          className="input !w-auto !py-1.5 !text-sm">
+          <option value="">Todas las obras</option>
+          {obras.map((o) => <option key={o.id} value={o.id}>{o.nombre}</option>)}
+        </select>
+        <select value={filterTipo} onChange={(e) => setFilterTipo(e.target.value)}
+          className="input !w-auto !py-1.5 !text-sm">
+          <option value="">Todos los tipos</option>
+          {Object.entries(tipoIcons).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+        </select>
+        {activeFilters > 0 && (
+          <button onClick={clearFilters} className="flex items-center gap-1 text-xs text-gray-500 hover:text-red-500 px-2 py-1.5 border border-border rounded-lg">
+            <X className="w-3 h-3" /> Limpiar filtros
+          </button>
+        )}
+      </div>
+
+      {/* Banner de filtro activo */}
+      {(clienteNombre || obraNombre) && (
+        <div className="flex items-center gap-2 text-sm text-primary-600 bg-primary-50 border border-primary-100 px-3 py-2 rounded-lg mb-4">
+          <Filter className="w-4 h-4" />
+          {clienteNombre && <span>Cliente: <strong>{clienteNombre}</strong></span>}
+          {obraNombre && <span>Obra: <strong>{obraNombre}</strong></span>}
+        </div>
+      )}
+
+      {/* Modal nueva comunicación */}
       {showNew && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <form onSubmit={handleCreate} className="bg-white rounded-xl p-6 w-full max-w-md space-y-4">
@@ -85,14 +172,10 @@ export default function ComunicacionesPage() {
               <label className="label">Tipo</label>
               <div className="grid grid-cols-4 gap-2">
                 {Object.entries(tipoIcons).map(([key, val]) => (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => setForm({ ...form, tipo: key })}
+                  <button key={key} type="button" onClick={() => setForm({ ...form, tipo: key })}
                     className={`p-3 rounded-lg border-2 text-center text-xs font-medium transition-colors ${
                       form.tipo === key ? "border-primary-500 bg-primary-50" : "border-border"
-                    }`}
-                  >
+                    }`}>
                     <val.icon className={`w-5 h-5 mx-auto mb-1 ${val.color.split(" ")[0]}`} />
                     {val.label}
                   </button>
@@ -115,7 +198,8 @@ export default function ComunicacionesPage() {
             </div>
             <div>
               <label className="label">Nota</label>
-              <textarea value={form.nota} onChange={(e) => setForm({ ...form, nota: e.target.value })} className="input min-h-[80px] resize-y" placeholder="¿De qué habéis hablado?" />
+              <textarea value={form.nota} onChange={(e) => setForm({ ...form, nota: e.target.value })}
+                className="input min-h-[80px] resize-y" placeholder="¿De qué habéis hablado?" />
             </div>
             <div className="flex gap-3">
               <button type="button" onClick={() => setShowNew(false)} className="btn-secondary flex-1">Cancelar</button>
@@ -132,34 +216,56 @@ export default function ComunicacionesPage() {
       ) : comunicaciones.length === 0 ? (
         <div className="card p-8 text-center">
           <MessageSquare className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-          <h2 className="text-lg font-semibold text-secondary mb-2">Sin comunicaciones</h2>
-          <p className="text-sm text-gray-500">Registra llamadas, WhatsApps y emails con tus clientes</p>
+          <h2 className="text-lg font-semibold text-secondary mb-2">
+            {activeFilters > 0 ? "Sin resultados para ese filtro" : "Sin comunicaciones"}
+          </h2>
+          <p className="text-sm text-gray-500">
+            {activeFilters > 0 ? "Prueba con otro filtro o limpia la selección." : "Registra llamadas, WhatsApps y emails con tus clientes"}
+          </p>
         </div>
       ) : (
-        <div className="space-y-2">
-          {comunicaciones.map((c) => {
-            const cfg = tipoIcons[c.tipo] || tipoIcons.llamada;
-            return (
-              <div key={c.id} className="card p-4 flex items-start gap-4">
-                <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${cfg.color}`}>
-                  <cfg.icon className="w-5 h-5" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <span className="font-medium text-secondary text-sm">{cfg.label}</span>
-                    {c.clientes && <span className="text-xs text-gray-500">con {(c.clientes as any).nombre}</span>}
+        <>
+          <div className="space-y-2">
+            {comunicaciones.map((c) => {
+              const cfg = tipoIcons[c.tipo] || tipoIcons.llamada;
+              return (
+                <div key={c.id} className="card p-4 flex items-start gap-4">
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${cfg.color}`}>
+                    <cfg.icon className="w-5 h-5" />
                   </div>
-                  {c.nota && <p className="text-sm text-gray-600">{c.nota}</p>}
-                  <div className="flex items-center gap-3 text-xs text-gray-400 mt-1">
-                    <span>{new Date(c.fecha).toLocaleDateString("es-ES")} {new Date(c.fecha).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}</span>
-                    {c.obras && <span>{(c.obras as any).nombre}</span>}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className="font-medium text-secondary text-sm">{cfg.label}</span>
+                      {c.clientes && <span className="text-xs text-gray-500">con {(c.clientes as any).nombre}</span>}
+                    </div>
+                    {c.nota && <p className="text-sm text-gray-600">{c.nota}</p>}
+                    <div className="flex items-center gap-3 text-xs text-gray-400 mt-1">
+                      <span>{new Date(c.fecha).toLocaleDateString("es-ES")} {new Date(c.fecha).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}</span>
+                      {c.obras && <span>· {(c.obras as any).nombre}</span>}
+                    </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+          {hasMore && (
+            <div className="text-center mt-4">
+              <button onClick={loadMore} className="btn-secondary !text-sm">
+                Cargar más
+              </button>
+            </div>
+          )}
+          <p className="text-xs text-gray-400 text-center mt-2">{comunicaciones.length} registro{comunicaciones.length !== 1 ? "s" : ""}</p>
+        </>
       )}
     </div>
+  );
+}
+
+export default function ComunicacionesPage() {
+  return (
+    <Suspense fallback={<div className="card p-8 text-center"><p className="text-gray-400">Cargando...</p></div>}>
+      <ComunicacionesInner />
+    </Suspense>
   );
 }
