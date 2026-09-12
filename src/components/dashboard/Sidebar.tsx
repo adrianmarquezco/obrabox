@@ -46,6 +46,7 @@ export default function Sidebar() {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [activeModulos, setActiveModulos] = useState<Set<string>>(new Set());
+  const [rol, setRol] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
@@ -53,8 +54,9 @@ export default function Sidebar() {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      const { data: usr } = await supabase.from("usuarios").select("empresa_id").eq("id", user.id).single();
+      const { data: usr } = await supabase.from("usuarios").select("empresa_id, rol").eq("id", user.id).single();
       if (!usr) return;
+      setRol(usr.rol);
       const { data } = await supabase.from("modulos_activos").select("modulo").eq("empresa_id", usr.empresa_id).eq("activo", true);
       if (data) {
         setActiveModulos(new Set(data.map((m: { modulo: string }) => m.modulo)));
@@ -64,9 +66,17 @@ export default function Sidebar() {
     loadModulos();
   }, []);
 
+  const isAdmin = rol === "admin";
+
   const menuItems = loaded
-    ? allMenuItems.filter((item) => item.modulo === null || activeModulos.has(item.modulo))
-    : allMenuItems.filter((item) => ["dashboard", "obras", "presupuestos", "clientes"].includes(item.modulo || "") || item.modulo === null);
+    ? allMenuItems.filter((item) => {
+        if (item.href === "/dashboard/configuracion" && !isAdmin) return false;
+        return item.modulo === null || activeModulos.has(item.modulo);
+      })
+    : allMenuItems.filter((item) =>
+        ["dashboard", "obras", "presupuestos", "clientes"].includes(item.modulo || "") ||
+        (item.modulo === null && item.href !== "/dashboard/configuracion")
+      );
 
   return (
     <aside
