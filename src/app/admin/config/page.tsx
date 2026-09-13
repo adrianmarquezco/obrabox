@@ -2,107 +2,129 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Settings, Save } from "lucide-react";
+import { Save, Settings } from "lucide-react";
 
-type Config = { clave: string; valor: any; descripcion: string | null };
+type ConfigEntry = {
+  clave: string;
+  valor: any;
+  descripcion: string | null;
+};
+
+const DEFAULT_CONFIG = [
+  { clave: "precios", descripcion: "Precios de los planes (JSON)", defaultValor: { free: 0, trial: 0, pro: 49, business: 99 } },
+  { clave: "trial_dias", descripcion: "Días de prueba gratis para nuevas empresas", defaultValor: 14 },
+  { clave: "modulos_default", descripcion: "Módulos activados por defecto para nuevas empresas", defaultValor: ["dashboard", "obras", "presupuestos", "clientes"] },
+  { clave: "mensaje_bienvenida", descripcion: "Mensaje de bienvenida en el onboarding", defaultValor: "Bienvenido a ObraBox" },
+];
 
 export default function AdminConfigPage() {
-  const [configs, setConfigs] = useState<Config[]>([]);
+  const [config, setConfig] = useState<Record<string, ConfigEntry>>({});
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [saving, setSaving] = useState<string | null>(null);
   const [msg, setMsg] = useState("");
+  const [editValues, setEditValues] = useState<Record<string, string>>({});
 
-  useEffect(() => { loadConfig(); }, []);
+  useEffect(() => {
+    async function load() {
+      const supabase = createClient();
+      const { data } = await supabase.from("admin_config").select("*");
+      const map: Record<string, ConfigEntry> = {};
+      (data || []).forEach((e: ConfigEntry) => { map[e.clave] = e; });
+      setConfig(map);
 
-  async function loadConfig() {
-    const supabase = createClient();
-    const { data } = await supabase.from("admin_config").select("*").order("clave");
-    setConfigs((data || []).map((c: any) => ({ ...c, valor: typeof c.valor === "string" ? c.valor : JSON.stringify(c.valor) })));
-    setLoading(false);
-  }
-
-  function updateValue(clave: string, valor: string) {
-    setConfigs((prev) => prev.map((c) => c.clave === clave ? { ...c, valor } : c));
-  }
-
-  async function saveAll() {
-    setSaving(true);
-    const supabase = createClient();
-
-    for (const config of configs) {
-      let parsedValue: any;
-      try {
-        parsedValue = JSON.parse(config.valor);
-      } catch {
-        parsedValue = config.valor;
-      }
-      await supabase.from("admin_config").update({ valor: parsedValue, updated_at: new Date().toISOString() }).eq("clave", config.clave);
-    }
-
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      await supabase.from("admin_logs").insert({
-        admin_id: user.id,
-        accion: "config_update",
-        entidad: "admin_config",
-        detalles: { claves: configs.map((c) => c.clave) },
+      const edits: Record<string, string> = {};
+      DEFAULT_CONFIG.forEach((dc) => {
+        const existing = map[dc.clave];
+        edits[dc.clave] = JSON.stringify(existing ? existing.valor : dc.defaultValor, null, 2);
       });
+      setEditValues(edits);
+      setLoading(false);
     }
+    load();
+  }, []);
 
-    setMsg("Configuración guardada");
-    setSaving(false);
+  async function saveConfig(clave: string) {
+    setSaving(clave);
+    let parsedValor;
+    try {
+      parsedValor = JSON.parse(editValues[clave]);
+    } catch {
+      setMsg(`Error: JSON inválido en ${clave}`);
+      setSaving(null);
+      setTimeout(() => setMsg(""), 4000);
+      return;
+    }
+    const supabase = createClient();
+    const desc = DEFAULT_CONFIG.find((d) => d.clave === clave)?.descripcion || null;
+    if (config[clave]) {
+      await supabase.from("admin_config").update({ valor: parsedValor }).eq("clave", clave);
+    } else {
+      await supabase.from("admin_config").insert({ clave, valor: parsedValor, descripcion: desc });
+    }
+    setConfig((prev) => ({ ...prev, [clave]: { clave, valor: parsedValor, descripcion: desc } }));
+    setMsg(`${clave} guardado`);
+    setSaving(null);
     setTimeout(() => setMsg(""), 3000);
   }
+
+  if (loading) return <div className="text-gray-500 text-sm">Cargando...</div>;
 
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Configuración global</h1>
-        {msg && <span className="text-sm text-green-500 font-medium">{msg}</span>}
-      </div>
-
-      <div className="bg-amber-50 border border-amber-200 text-amber-700 text-sm p-4 rounded-lg mb-6">
-        <strong>Cuidado:</strong> estos valores afectan a toda la plataforma. Cambia con precaución.
-      </div>
-
-      {loading ? (
-        <div className="bg-white rounded-xl border p-8 text-center"><p className="text-gray-400">Cargando...</p></div>
-      ) : (
-        <div className="space-y-4">
-          {configs.map((c) => {
-            const isBoolean = c.valor === "true" || c.valor === "false" || c.valor === true || c.valor === false;
-            return (
-              <div key={c.clave} className="bg-white rounded-xl border p-5">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1">
-                    <p className="font-medium text-gray-900 font-mono text-sm">{c.clave}</p>
-                    {c.descripcion && <p className="text-xs text-gray-500 mt-0.5">{c.descripcion}</p>}
-                  </div>
-                  {isBoolean ? (
-                    <button
-                      onClick={() => updateValue(c.clave, String(c.valor) === "true" ? "false" : "true")}
-                      className={`w-12 h-7 rounded-full transition-colors relative ${String(c.valor) === "true" ? "bg-green-500" : "bg-gray-200"}`}
-                    >
-                      <span className={`absolute w-5 h-5 bg-white rounded-full top-1 transition-transform ${String(c.valor) === "true" ? "left-6" : "left-1"}`} />
-                    </button>
-                  ) : (
-                    <input
-                      type="text"
-                      value={String(c.valor).replace(/^"|"$/g, "")}
-                      onChange={(e) => updateValue(c.clave, `"${e.target.value}"`)}
-                      className="w-48 text-sm border border-gray-200 rounded-lg px-3 py-2 font-mono focus:outline-none focus:ring-2 focus:ring-red-500/20"
-                    />
-                  )}
-                </div>
-              </div>
-            );
-          })}
-
-          <button onClick={saveAll} disabled={saving} className="w-full bg-red-500 hover:bg-red-600 text-white font-semibold px-4 py-3 rounded-lg text-sm flex items-center justify-center gap-2 disabled:opacity-50 transition-colors">
-            <Save className="w-4 h-4" /> {saving ? "Guardando..." : "Guardar toda la configuración"}
-          </button>
+        <div className="flex items-center gap-3">
+          <Settings className="w-6 h-6 text-orange-400" />
+          <h1 className="text-2xl font-bold text-gray-100">Config global</h1>
         </div>
-      )}
+        {msg && <span className={`text-sm font-medium ${msg.startsWith("Error") ? "text-red-400" : "text-green-400"}`}>{msg}</span>}
+      </div>
+
+      <div className="space-y-4">
+        {DEFAULT_CONFIG.map((dc) => (
+          <div key={dc.clave} className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+            <div className="flex items-start justify-between mb-2">
+              <div>
+                <p className="text-sm font-mono font-medium text-orange-400">{dc.clave}</p>
+                {dc.descripcion && <p className="text-xs text-gray-500 mt-0.5">{dc.descripcion}</p>}
+              </div>
+              <button onClick={() => saveConfig(dc.clave)} disabled={saving === dc.clave}
+                className="flex items-center gap-1.5 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white text-xs font-medium px-3 py-1.5 rounded-lg transition-colors flex-shrink-0 ml-4">
+                <Save className="w-3 h-3" /> {saving === dc.clave ? "Guardando..." : "Guardar"}
+              </button>
+            </div>
+            <textarea
+              value={editValues[dc.clave] || ""}
+              onChange={(e) => setEditValues((prev) => ({ ...prev, [dc.clave]: e.target.value }))}
+              rows={typeof (config[dc.clave]?.valor ?? dc.defaultValor) === "object" ? 5 : 2}
+              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 font-mono focus:outline-none focus:border-orange-500 resize-y"
+            />
+          </div>
+        ))}
+
+        {/* Entradas extra en la DB que no están en DEFAULT_CONFIG */}
+        {Object.values(config)
+          .filter((e) => !DEFAULT_CONFIG.find((d) => d.clave === e.clave))
+          .map((e) => (
+            <div key={e.clave} className="bg-gray-900 border border-gray-700/50 rounded-xl p-5">
+              <div className="flex items-start justify-between mb-2">
+                <div>
+                  <p className="text-sm font-mono font-medium text-gray-400">{e.clave}</p>
+                  {e.descripcion && <p className="text-xs text-gray-600 mt-0.5">{e.descripcion}</p>}
+                </div>
+                <button onClick={() => saveConfig(e.clave)} disabled={saving === e.clave}
+                  className="flex items-center gap-1.5 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-gray-300 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors flex-shrink-0 ml-4">
+                  <Save className="w-3 h-3" /> {saving === e.clave ? "Guardando..." : "Guardar"}
+                </button>
+              </div>
+              <textarea
+                value={editValues[e.clave] ?? JSON.stringify(e.valor, null, 2)}
+                onChange={(ev) => setEditValues((prev) => ({ ...prev, [e.clave]: ev.target.value }))}
+                rows={3}
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 font-mono focus:outline-none focus:border-orange-500 resize-y"
+              />
+            </div>
+          ))}
+      </div>
     </div>
   );
 }

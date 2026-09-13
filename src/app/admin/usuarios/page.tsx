@@ -1,208 +1,154 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
-import { Search, Users, Plus, Shield, UserX } from "lucide-react";
+import { Search, X } from "lucide-react";
 
 type Usuario = {
   id: string;
   nombre: string;
   email: string;
-  telefono: string | null;
   rol: string;
   activo: boolean;
-  empresa_id: string;
   created_at: string;
-  empresas?: { nombre: string };
+  empresa_id: string;
+  empresas: { nombre: string } | null;
 };
+
+const PAGE_SIZE = 25;
 
 export default function AdminUsuariosPage() {
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
-  const [empresas, setEmpresas] = useState<{ id: string; nombre: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [showNew, setShowNew] = useState(false);
-  const [form, setForm] = useState({ nombre: "", email: "", password: "", empresa_id: "", rol: "admin", telefono: "" });
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  const [filtroRol, setFiltroRol] = useState("");
+  const [filtroActivo, setFiltroActivo] = useState("");
+  const [hasMore, setHasMore] = useState(false);
+  const [page, setPage] = useState(0);
+  const [total, setTotal] = useState(0);
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
-  useEffect(() => { loadData(); }, []);
-
-  async function loadData() {
+  const load = useCallback(async (p: number, q: string, rol: string, activo: string, replace = false) => {
     const supabase = createClient();
-    const [usrRes, empRes] = await Promise.all([
-      supabase.from("usuarios").select("*, empresas(nombre)").order("created_at", { ascending: false }),
-      supabase.from("empresas").select("id, nombre").order("nombre"),
-    ]);
-    setUsuarios(usrRes.data || []);
-    setEmpresas(empRes.data || []);
+    let query = supabase.from("usuarios")
+      .select("id, nombre, email, rol, activo, created_at, empresa_id, empresas(nombre)", { count: "exact" })
+      .order("created_at", { ascending: false })
+      .range(p * PAGE_SIZE, (p + 1) * PAGE_SIZE - 1);
+    if (q) query = query.or(`nombre.ilike.%${q}%,email.ilike.%${q}%`);
+    if (rol) query = query.eq("rol", rol);
+    if (activo !== "") query = query.eq("activo", activo === "true");
+    const { data, count } = await query;
+    const rows = (data || []) as unknown as Usuario[];
+    setHasMore(rows.length === PAGE_SIZE);
+    setTotal(count || 0);
+    setUsuarios((prev) => replace ? rows : [...prev, ...rows]);
     setLoading(false);
-  }
+  }, []);
 
-  async function createUser(e: React.FormEvent) {
-    e.preventDefault();
-    setError("");
-    setSaving(true);
-
-    const res = await fetch("/api/admin/create-user", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
-    });
-
-    const data = await res.json();
-    if (!res.ok) {
-      setError(data.error || "Error al crear usuario");
-      setSaving(false);
-      return;
-    }
-
-    setSuccess(`Usuario ${form.email} creado correctamente`);
-    setForm({ nombre: "", email: "", password: "", empresa_id: "", rol: "admin", telefono: "" });
-    setShowNew(false);
-    setSaving(false);
-    loadData();
-    setTimeout(() => setSuccess(""), 5000);
-  }
+  useEffect(() => {
+    setPage(0);
+    setLoading(true);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => load(0, search, filtroRol, filtroActivo, true), 300);
+  }, [search, filtroRol, filtroActivo, load]);
 
   async function toggleActivo(userId: string, activo: boolean) {
     const supabase = createClient();
     await supabase.from("usuarios").update({ activo: !activo }).eq("id", userId);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) await supabase.from("admin_logs").insert({ admin_id: user.id, accion: activo ? "user_disable" : "user_enable", entidad: "usuarios", entidad_id: userId });
     setUsuarios((prev) => prev.map((u) => u.id === userId ? { ...u, activo: !activo } : u));
   }
-
-  async function resetPassword(email: string) {
-    const supabase = createClient();
-    await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
-    });
-    setSuccess(`Email de reseteo enviado a ${email}`);
-    setTimeout(() => setSuccess(""), 5000);
-  }
-
-  const filtered = usuarios.filter((u) =>
-    !search ||
-    u.nombre.toLowerCase().includes(search.toLowerCase()) ||
-    u.email.toLowerCase().includes(search.toLowerCase()) ||
-    (u.empresas as any)?.nombre?.toLowerCase().includes(search.toLowerCase())
-  );
 
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Usuarios ({usuarios.length})</h1>
-        <button onClick={() => setShowNew(true)} className="bg-red-500 hover:bg-red-600 text-white font-semibold px-4 py-2.5 rounded-lg text-sm flex items-center gap-2 transition-colors">
-          <Plus className="w-4 h-4" /> Crear usuario
-        </button>
-      </div>
-
-      {success && <div className="bg-green-50 border border-green-200 text-green-700 text-sm p-3 rounded-lg mb-4">{success}</div>}
-
-      <div className="relative mb-6">
-        <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-        <input type="text" placeholder="Buscar por nombre, email o empresa..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full pl-10 pr-4 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500" />
-      </div>
-
-      {/* Modal crear usuario */}
-      {showNew && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <form onSubmit={createUser} className="bg-white rounded-xl p-6 w-full max-w-md space-y-4">
-            <h2 className="text-lg font-bold text-gray-900">Crear nuevo usuario</h2>
-            {error && <div className="bg-red-50 border border-red-200 text-red-600 text-sm p-3 rounded-lg">{error}</div>}
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Nombre *</label>
-              <input type="text" value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-red-500/20" required />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Email *</label>
-              <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-red-500/20" required />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Contraseña *</label>
-              <input type="text" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-red-500/20 font-mono" placeholder="Mínimo 6 caracteres" required minLength={6} />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Empresa *</label>
-              <select value={form.empresa_id} onChange={(e) => setForm({ ...form, empresa_id: e.target.value })} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2.5" required>
-                <option value="">Seleccionar empresa</option>
-                {empresas.map((emp) => <option key={emp.id} value={emp.id}>{emp.nombre}</option>)}
-              </select>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">Rol</label>
-                <select value={form.rol} onChange={(e) => setForm({ ...form, rol: e.target.value })} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2.5">
-                  <option value="admin">Admin</option>
-                  <option value="empleado">Empleado</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">Teléfono</label>
-                <input type="tel" value={form.telefono} onChange={(e) => setForm({ ...form, telefono: e.target.value })} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2.5" />
-              </div>
-            </div>
-            <div className="flex gap-3">
-              <button type="button" onClick={() => setShowNew(false)} className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold px-4 py-2.5 rounded-lg text-sm transition-colors">Cancelar</button>
-              <button type="submit" disabled={saving} className="flex-1 bg-red-500 hover:bg-red-600 text-white font-semibold px-4 py-2.5 rounded-lg text-sm disabled:opacity-50 transition-colors">
-                {saving ? "Creando..." : "Crear usuario"}
-              </button>
-            </div>
-          </form>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-100">Usuarios</h1>
+          <p className="text-sm text-gray-500 mt-0.5">{total} usuario{total !== 1 ? "s" : ""} en total</p>
         </div>
-      )}
+      </div>
 
-      {loading ? (
-        <div className="bg-white rounded-xl border p-8 text-center"><p className="text-gray-400">Cargando...</p></div>
-      ) : (
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-200 bg-gray-50">
-                <th className="text-left p-3 font-medium text-gray-500">Nombre</th>
-                <th className="text-left p-3 font-medium text-gray-500">Email</th>
-                <th className="text-left p-3 font-medium text-gray-500">Empresa</th>
-                <th className="text-left p-3 font-medium text-gray-500">Rol</th>
-                <th className="text-left p-3 font-medium text-gray-500">Estado</th>
-                <th className="p-3 font-medium text-gray-500">Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((u) => (
-                <tr key={u.id} className="border-b border-gray-100 hover:bg-gray-50">
-                  <td className="p-3 font-medium text-gray-900">{u.nombre}</td>
-                  <td className="p-3 text-gray-500">{u.email}</td>
-                  <td className="p-3">
-                    <Link href={`/admin/empresas/${u.empresa_id}`} className="text-blue-500 hover:text-blue-600 text-xs">
-                      {(u.empresas as any)?.nombre || "—"}
+      <div className="flex flex-wrap gap-3 mb-4">
+        <div className="relative flex-1 min-w-48">
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+          <input type="text" placeholder="Buscar por nombre o email..." value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full bg-gray-900 border border-gray-700 rounded-lg pl-10 pr-4 py-2.5 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:border-orange-500" />
+          {search && <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2"><X className="w-3.5 h-3.5 text-gray-500" /></button>}
+        </div>
+        <select value={filtroRol} onChange={(e) => setFiltroRol(e.target.value)}
+          className="bg-gray-900 border border-gray-700 rounded-lg px-3 py-2.5 text-sm text-gray-300 focus:outline-none focus:border-orange-500">
+          <option value="">Todos los roles</option>
+          <option value="admin">Admin</option>
+          <option value="empleado">Empleado</option>
+        </select>
+        <select value={filtroActivo} onChange={(e) => setFiltroActivo(e.target.value)}
+          className="bg-gray-900 border border-gray-700 rounded-lg px-3 py-2.5 text-sm text-gray-300 focus:outline-none focus:border-orange-500">
+          <option value="">Todos</option>
+          <option value="true">Activos</option>
+          <option value="false">Inactivos</option>
+        </select>
+      </div>
+
+      <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-gray-800">
+              <th className="p-3 text-left text-xs font-medium text-gray-500 uppercase">Nombre</th>
+              <th className="p-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
+              <th className="p-3 text-left text-xs font-medium text-gray-500 uppercase">Empresa</th>
+              <th className="p-3 text-left text-xs font-medium text-gray-500 uppercase">Rol</th>
+              <th className="p-3 text-left text-xs font-medium text-gray-500 uppercase">Estado</th>
+              <th className="p-3 text-left text-xs font-medium text-gray-500 uppercase">Alta</th>
+              <th className="p-3"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr><td colSpan={7} className="p-8 text-center text-gray-600">Cargando...</td></tr>
+            ) : usuarios.length === 0 ? (
+              <tr><td colSpan={7} className="p-8 text-center text-gray-600">Sin resultados</td></tr>
+            ) : usuarios.map((u) => (
+              <tr key={u.id} className="border-b border-gray-800/50 hover:bg-gray-800/30 transition-colors">
+                <td className="p-3 font-medium text-gray-200">{u.nombre}</td>
+                <td className="p-3 text-gray-500 text-xs">{u.email}</td>
+                <td className="p-3">
+                  {u.empresas ? (
+                    <Link href={`/admin/empresas/${u.empresa_id}`}
+                      className="text-xs text-orange-400 hover:text-orange-300">
+                      {(u.empresas as any).nombre}
                     </Link>
-                  </td>
-                  <td className="p-3">
-                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${u.rol === "admin" ? "bg-purple-100 text-purple-600" : "bg-gray-100 text-gray-600"}`}>{u.rol}</span>
-                  </td>
-                  <td className="p-3">
-                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${u.activo ? "bg-green-100 text-green-600" : "bg-red-100 text-red-600"}`}>
-                      {u.activo ? "Activo" : "Desactivado"}
-                    </span>
-                  </td>
-                  <td className="p-3">
-                    <div className="flex items-center justify-center gap-2">
-                      <button onClick={() => resetPassword(u.email)} className="text-xs text-blue-500 hover:text-blue-600 font-medium">Reset pass</button>
-                      <button onClick={() => toggleActivo(u.id, u.activo)} className={`text-xs font-medium ${u.activo ? "text-red-500" : "text-green-500"}`}>
-                        {u.activo ? "Desactivar" : "Activar"}
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {filtered.length === 0 && (
-                <tr><td colSpan={6} className="p-8 text-center text-gray-400">No se encontraron usuarios</td></tr>
-              )}
-            </tbody>
-          </table>
+                  ) : <span className="text-gray-600 text-xs">—</span>}
+                </td>
+                <td className="p-3">
+                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                    u.rol === "admin" ? "bg-purple-900/40 text-purple-400" : "bg-gray-700 text-gray-400"
+                  }`}>{u.rol}</span>
+                </td>
+                <td className="p-3">
+                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                    u.activo ? "bg-green-900/40 text-green-400" : "bg-red-900/40 text-red-400"
+                  }`}>{u.activo ? "Activo" : "Inactivo"}</span>
+                </td>
+                <td className="p-3 text-xs text-gray-500">{new Date(u.created_at).toLocaleDateString("es-ES")}</td>
+                <td className="p-3">
+                  <button onClick={() => toggleActivo(u.id, u.activo)}
+                    className={`text-xs font-medium ${u.activo ? "text-red-500 hover:text-red-400" : "text-green-500 hover:text-green-400"}`}>
+                    {u.activo ? "Desactivar" : "Activar"}
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {hasMore && (
+        <div className="text-center mt-4">
+          <button onClick={() => { const next = page + 1; setPage(next); load(next, search, filtroRol, filtroActivo); }}
+            className="text-sm text-orange-400 hover:text-orange-300 border border-gray-700 px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors">
+            Cargar más
+          </button>
         </div>
       )}
     </div>

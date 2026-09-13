@@ -2,164 +2,160 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Building2, Users, FileText, Receipt, TrendingUp, Activity } from "lucide-react";
 import Link from "next/link";
+import { Building2, Users, MessageSquare, TrendingUp, AlertTriangle, Clock } from "lucide-react";
 
 type Stats = {
-  empresas: number;
-  usuarios: number;
-  obras: number;
-  presupuestos: number;
-  facturas: number;
+  total_empresas: number;
+  empresas_trial: number;
   empresas_pro: number;
   empresas_business: number;
-  empresas_gratis: number;
-  empresas_hoy: number;
-  usuarios_hoy: number;
+  total_usuarios: number;
+  total_leads: number;
+  leads_nuevos: number;
 };
 
-export default function AdminDashboardPage() {
+type EmpresaReciente = {
+  id: string;
+  nombre: string;
+  plan: string;
+  trial_hasta: string | null;
+  created_at: string;
+};
+
+export default function AdminPage() {
   const [stats, setStats] = useState<Stats | null>(null);
-  const [recentEmpresas, setRecentEmpresas] = useState<any[]>([]);
+  const [recientes, setRecientes] = useState<EmpresaReciente[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => { loadStats(); }, []);
+  useEffect(() => {
+    async function load() {
+      const supabase = createClient();
+      const [empRes, usrRes, leadsRes, leadsNuevosRes] = await Promise.all([
+        supabase.from("empresas").select("plan, trial_hasta"),
+        supabase.from("usuarios").select("id", { count: "exact", head: true }),
+        supabase.from("contacto_leads").select("id", { count: "exact", head: true }),
+        supabase.from("contacto_leads").select("id", { count: "exact", head: true })
+          .gte("created_at", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()),
+      ]);
 
-  async function loadStats() {
-    const supabase = createClient();
-    const today = new Date().toISOString().split("T")[0];
+      const empresas = empRes.data || [];
+      setStats({
+        total_empresas: empresas.length,
+        empresas_trial: empresas.filter((e) => e.plan === "trial" || e.plan === "free").length,
+        empresas_pro: empresas.filter((e) => e.plan === "pro").length,
+        empresas_business: empresas.filter((e) => e.plan === "business").length,
+        total_usuarios: usrRes.count || 0,
+        total_leads: leadsRes.count || 0,
+        leads_nuevos: leadsNuevosRes.count || 0,
+      });
 
-    const [emp, usr, obras, pres, fact, empPro, empBiz, empFree, empHoy, usrHoy, recent] = await Promise.all([
-      supabase.from("empresas").select("id", { count: "exact", head: true }),
-      supabase.from("usuarios").select("id", { count: "exact", head: true }),
-      supabase.from("obras").select("id", { count: "exact", head: true }).is("deleted_at", null),
-      supabase.from("presupuestos").select("id", { count: "exact", head: true }).is("deleted_at", null),
-      supabase.from("facturas_emitidas").select("id", { count: "exact", head: true }).is("deleted_at", null),
-      supabase.from("empresas").select("id", { count: "exact", head: true }).eq("plan", "pro"),
-      supabase.from("empresas").select("id", { count: "exact", head: true }).eq("plan", "business"),
-      supabase.from("empresas").select("id", { count: "exact", head: true }).eq("plan", "gratis"),
-      supabase.from("empresas").select("id", { count: "exact", head: true }).gte("created_at", today),
-      supabase.from("usuarios").select("id", { count: "exact", head: true }).gte("created_at", today),
-      supabase.from("empresas").select("id, nombre, plan, created_at").order("created_at", { ascending: false }).limit(10),
-    ]);
+      const { data: rec } = await supabase.from("empresas")
+        .select("id, nombre, plan, trial_hasta, created_at")
+        .order("created_at", { ascending: false })
+        .limit(5);
+      setRecientes(rec || []);
+      setLoading(false);
+    }
+    load();
+  }, []);
 
-    setStats({
-      empresas: emp.count || 0,
-      usuarios: usr.count || 0,
-      obras: obras.count || 0,
-      presupuestos: pres.count || 0,
-      facturas: fact.count || 0,
-      empresas_pro: empPro.count || 0,
-      empresas_business: empBiz.count || 0,
-      empresas_gratis: empFree.count || 0,
-      empresas_hoy: empHoy.count || 0,
-      usuarios_hoy: usrHoy.count || 0,
-    });
-    setRecentEmpresas(recent.data || []);
-    setLoading(false);
-  }
+  const planBadge = (plan: string) => {
+    const styles: Record<string, string> = {
+      trial: "bg-yellow-500/20 text-yellow-400",
+      free: "bg-gray-500/20 text-gray-400",
+      pro: "bg-blue-500/20 text-blue-400",
+      business: "bg-purple-500/20 text-purple-400",
+    };
+    return (
+      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${styles[plan] || styles.free}`}>
+        {plan}
+      </span>
+    );
+  };
 
-  if (loading) return <div className="card p-8 text-center"><p className="text-gray-400">Cargando estadísticas...</p></div>;
+  if (loading) return <div className="text-gray-500 text-sm">Cargando...</div>;
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">Dashboard Admin</h1>
+      <h1 className="text-2xl font-bold text-gray-100 mb-6">Overview</h1>
 
-      {/* Stats principales */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
-        <Link href="/admin/empresas" className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow">
-          <Building2 className="w-8 h-8 text-blue-500 mb-2" />
-          <p className="text-2xl font-bold text-gray-900">{stats?.empresas}</p>
-          <p className="text-sm text-gray-500">Empresas</p>
-          {(stats?.empresas_hoy || 0) > 0 && <p className="text-xs text-green-500 mt-1">+{stats?.empresas_hoy} hoy</p>}
-        </Link>
-        <Link href="/admin/usuarios" className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow">
-          <Users className="w-8 h-8 text-purple-500 mb-2" />
-          <p className="text-2xl font-bold text-gray-900">{stats?.usuarios}</p>
-          <p className="text-sm text-gray-500">Usuarios</p>
-          {(stats?.usuarios_hoy || 0) > 0 && <p className="text-xs text-green-500 mt-1">+{stats?.usuarios_hoy} hoy</p>}
-        </Link>
-        <div className="bg-white rounded-xl border border-gray-200 p-5">
-          <FileText className="w-8 h-8 text-orange-500 mb-2" />
-          <p className="text-2xl font-bold text-gray-900">{stats?.obras}</p>
-          <p className="text-sm text-gray-500">Obras</p>
-        </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-5">
-          <FileText className="w-8 h-8 text-cyan-500 mb-2" />
-          <p className="text-2xl font-bold text-gray-900">{stats?.presupuestos}</p>
-          <p className="text-sm text-gray-500">Presupuestos</p>
-        </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-5">
-          <Receipt className="w-8 h-8 text-green-500 mb-2" />
-          <p className="text-2xl font-bold text-gray-900">{stats?.facturas}</p>
-          <p className="text-sm text-gray-500">Facturas</p>
-        </div>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        {[
+          { label: "Empresas totales", value: stats?.total_empresas, icon: Building2, color: "text-orange-400" },
+          { label: "Usuarios totales", value: stats?.total_usuarios, icon: Users, color: "text-blue-400" },
+          { label: "Leads totales", value: stats?.total_leads, icon: MessageSquare, color: "text-green-400" },
+          { label: "Leads esta semana", value: stats?.leads_nuevos, icon: TrendingUp, color: "text-purple-400" },
+        ].map((s) => (
+          <div key={s.label} className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+            <div className="flex items-center gap-2 mb-1">
+              <s.icon className={`w-4 h-4 ${s.color}`} />
+              <p className="text-xs text-gray-500 uppercase tracking-wide">{s.label}</p>
+            </div>
+            <p className={`text-3xl font-bold ${s.color}`}>{s.value ?? "-"}</p>
+          </div>
+        ))}
       </div>
 
       <div className="grid lg:grid-cols-2 gap-6">
         {/* Distribución de planes */}
-        <div className="bg-white rounded-xl border border-gray-200 p-5">
-          <h2 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <TrendingUp className="w-5 h-5 text-blue-500" /> Distribución de planes
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+          <h2 className="text-sm font-semibold text-gray-300 mb-4 flex items-center gap-2">
+            <TrendingUp className="w-4 h-4 text-orange-400" /> Distribución de planes
           </h2>
           <div className="space-y-3">
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-sm text-gray-600">Gratis</span>
-                <span className="text-sm font-semibold text-gray-900">{stats?.empresas_gratis}</span>
-              </div>
-              <div className="w-full bg-gray-100 rounded-full h-2.5">
-                <div className="bg-gray-400 h-2.5 rounded-full" style={{ width: `${stats?.empresas ? ((stats.empresas_gratis / stats.empresas) * 100) : 0}%` }} />
-              </div>
-            </div>
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-sm text-gray-600">Pro (29€/mes)</span>
-                <span className="text-sm font-semibold text-orange-500">{stats?.empresas_pro}</span>
-              </div>
-              <div className="w-full bg-gray-100 rounded-full h-2.5">
-                <div className="bg-orange-500 h-2.5 rounded-full" style={{ width: `${stats?.empresas ? ((stats.empresas_pro / stats.empresas) * 100) : 0}%` }} />
-              </div>
-            </div>
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-sm text-gray-600">Business (59€/mes)</span>
-                <span className="text-sm font-semibold text-blue-500">{stats?.empresas_business}</span>
-              </div>
-              <div className="w-full bg-gray-100 rounded-full h-2.5">
-                <div className="bg-blue-500 h-2.5 rounded-full" style={{ width: `${stats?.empresas ? ((stats.empresas_business / stats.empresas) * 100) : 0}%` }} />
-              </div>
-            </div>
-          </div>
-          <div className="mt-4 pt-4 border-t border-gray-100">
-            <p className="text-sm text-gray-500">MRR estimado: <span className="font-bold text-gray-900">{((stats?.empresas_pro || 0) * 29 + (stats?.empresas_business || 0) * 59).toLocaleString("es-ES")}€/mes</span></p>
+            {[
+              { label: "Trial / Free", value: stats?.empresas_trial, color: "bg-yellow-500" },
+              { label: "Pro", value: stats?.empresas_pro, color: "bg-blue-500" },
+              { label: "Business", value: stats?.empresas_business, color: "bg-purple-500" },
+            ].map((p) => {
+              const pct = stats?.total_empresas ? Math.round(((p.value || 0) / stats.total_empresas) * 100) : 0;
+              return (
+                <div key={p.label}>
+                  <div className="flex justify-between text-xs text-gray-400 mb-1">
+                    <span>{p.label}</span>
+                    <span>{p.value} ({pct}%)</span>
+                  </div>
+                  <div className="h-2 bg-gray-800 rounded-full">
+                    <div className={`h-2 ${p.color} rounded-full`} style={{ width: `${pct}%` }} />
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
 
-        {/* Últimas empresas registradas */}
-        <div className="bg-white rounded-xl border border-gray-200 p-5">
-          <h2 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <Activity className="w-5 h-5 text-purple-500" /> Últimas empresas registradas
-          </h2>
-          {recentEmpresas.length === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-4">No hay empresas registradas</p>
-          ) : (
-            <div className="space-y-2">
-              {recentEmpresas.map((e: any) => (
-                <Link key={e.id} href={`/admin/empresas/${e.id}`} className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 transition-colors">
-                  <div>
-                    <p className="font-medium text-gray-900 text-sm">{e.nombre}</p>
-                    <p className="text-xs text-gray-400">{new Date(e.created_at).toLocaleDateString("es-ES", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</p>
+        {/* Empresas recientes */}
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-semibold text-gray-300 flex items-center gap-2">
+              <Clock className="w-4 h-4 text-orange-400" /> Empresas recientes
+            </h2>
+            <Link href="/admin/empresas" className="text-xs text-orange-400 hover:text-orange-300">Ver todas</Link>
+          </div>
+          <div className="space-y-2">
+            {recientes.map((e) => {
+              const trialing = e.trial_hasta && new Date(e.trial_hasta) > new Date();
+              const trialExpired = e.trial_hasta && new Date(e.trial_hasta) <= new Date();
+              return (
+                <Link key={e.id} href={`/admin/empresas/${e.id}`}
+                  className="flex items-center justify-between p-2.5 rounded-lg hover:bg-gray-800 transition-colors">
+                  <div className="flex items-center gap-2">
+                    {trialExpired && <AlertTriangle className="w-3.5 h-3.5 text-red-400 flex-shrink-0" />}
+                    <span className="text-sm text-gray-200">{e.nombre}</span>
                   </div>
-                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                    e.plan === "pro" ? "bg-orange-100 text-orange-600" :
-                    e.plan === "business" ? "bg-blue-100 text-blue-600" :
-                    "bg-gray-100 text-gray-600"
-                  }`}>{e.plan}</span>
+                  <div className="flex items-center gap-2">
+                    {planBadge(e.plan)}
+                    {trialing && (
+                      <span className="text-xs text-yellow-500">
+                        trial hasta {new Date(e.trial_hasta!).toLocaleDateString("es-ES")}
+                      </span>
+                    )}
+                  </div>
                 </Link>
-              ))}
-            </div>
-          )}
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>
